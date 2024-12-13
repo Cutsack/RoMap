@@ -18,20 +18,8 @@
             margin-top: 20px;
             display: none;
         }
-        #territoryKey {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            background: white;
-            padding: 10px;
-            border: 1px solid black;
-            z-index: 1000;
-        }
         .hidden {
             display: none;
-        }
-        #territoryColor {
-            margin: 5px;
         }
     </style>
 </head>
@@ -46,21 +34,15 @@
         <button id="signOut" class="hidden">Sign Out</button>
     </div>
     <div id="map"></div>
-    <div id="territoryKey" class="hidden">
-        <h3>Territory Key</h3>
-        <div id="territoryKeyList"></div>
-        <button id="enterEditMode">Enter Edit Mode</button>
-        <button id="exitEditMode" class="hidden">Exit Edit Mode</button>
-        <label for="territoryColor">Select Territory Color:</label>
-        <input type="color" id="territoryColor" />
-    </div>
 
     <script type="module">
+        // Import Firebase modules
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
         import { getAuth, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
-        import { getFirestore, collection, addDoc, onSnapshot, query, where, getDocs } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, updateDoc, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
         import "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
 
+        // Firebase configuration
         const firebaseConfig = {
             apiKey: "AIzaSyAYdm4vpHn4vJVqCFgiGRMJixB1G6mpY2U",
             authDomain: "romaps-8915a.firebaseapp.com",
@@ -75,20 +57,13 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
 
+        // Authentication handlers
         const emailInput = document.getElementById("email");
         const passwordInput = document.getElementById("password");
         const signInButton = document.getElementById("signIn");
         const signOutButton = document.getElementById("signOut");
         const authDiv = document.getElementById("auth");
         const mapDiv = document.getElementById("map");
-        const territoryKey = document.getElementById("territoryKey");
-        const territoryKeyList = document.getElementById("territoryKeyList");
-        const territoryColorInput = document.getElementById("territoryColor");
-        const enterEditModeButton = document.getElementById("enterEditMode");
-        const exitEditModeButton = document.getElementById("exitEditMode");
-
-        let isEditMode = false;
-        let drawnTerritories = [];
 
         signInButton.addEventListener("click", async () => {
             const email = emailInput.value;
@@ -98,7 +73,6 @@
                 await signInWithEmailAndPassword(auth, email, password);
                 authDiv.classList.add("hidden");
                 mapDiv.style.display = "block";
-                territoryKey.classList.remove("hidden");
                 initMap();
             } catch (error) {
                 alert("Sign-in failed: " + error.message);
@@ -109,7 +83,6 @@
             await signOut(auth);
             authDiv.classList.remove("hidden");
             mapDiv.style.display = "none";
-            territoryKey.classList.add("hidden");
         });
 
         // Initialize map
@@ -121,9 +94,8 @@
                 attribution: '© OpenStreetMap contributors'
             }).addTo(map);
 
-            // Firestore collection reference for markers and territories
+            // Firestore collection reference
             const markersCollection = collection(db, "markers");
-            const territoriesCollection = collection(db, "territories");
 
             // Load existing markers
             onSnapshot(markersCollection, (snapshot) => {
@@ -134,79 +106,20 @@
                 });
             });
 
-            // Load existing territories and display them on the map
-            onSnapshot(territoriesCollection, (snapshot) => {
-                snapshot.forEach((doc) => {
-                    const data = doc.data();
-                    const polygon = L.polygon(data.coordinates.map(coord => [coord.latitude, coord.longitude]), {
-                        color: data.color
-                    }).addTo(map);
-                    polygon.bindPopup(data.name);
-                });
-            });
-
             // Add new markers
             map.on("click", async (e) => {
-                if (isEditMode) {
-                    const { lat, lng } = e.latlng;
-                    drawnTerritories.push(new firebase.firestore.GeoPoint(lat, lng));
-
-                    if (drawnTerritories.length > 2) {
-                        const territoryName = prompt("Enter a name for this territory:");
-                        const territoryColor = territoryColorInput.value;
-                        if (territoryName) {
-                            try {
-                                await addDoc(territoriesCollection, {
-                                    name: territoryName,
-                                    coordinates: drawnTerritories,  // Store coordinates as GeoPoints
-                                    color: territoryColor
-                                });
-                                drawnTerritories = []; // Clear the points after saving
-                                alert("Territory created!");
-                            } catch (error) {
-                                alert("Failed to create territory: " + error.message);
-                            }
-                        }
-                    }
-                } else {
-                    const description = prompt("Enter a description for this marker:");
-                    if (description) {
-                        try {
-                            await addDoc(markersCollection, { lat, lng, description });
-                            alert("Marker added!");
-                        } catch (error) {
-                            alert("Failed to add marker: " + error.message);
-                        }
+                const { lat, lng } = e.latlng;
+                const description = prompt("Enter a description for this marker:");
+                if (description) {
+                    try {
+                        await addDoc(markersCollection, { lat, lng, description });
+                        alert("Marker added!");
+                    } catch (error) {
+                        alert("Failed to add marker: " + error.message);
                     }
                 }
             });
         }
-
-        // Handle territory key and selection
-        const territoryRef = collection(db, "territories");
-        onSnapshot(territoryRef, (snapshot) => {
-            territoryKeyList.innerHTML = ''; // Clear existing key items
-            snapshot.forEach((doc) => {
-                const data = doc.data();
-                const keyItem = document.createElement("div");
-                keyItem.style.backgroundColor = data.color;
-                keyItem.textContent = data.name;
-                territoryKeyList.appendChild(keyItem);
-            });
-        });
-
-        // Toggle Edit Mode
-        enterEditModeButton.addEventListener("click", () => {
-            isEditMode = true;
-            enterEditModeButton.classList.add("hidden");
-            exitEditModeButton.classList.remove("hidden");
-        });
-
-        exitEditModeButton.addEventListener("click", () => {
-            isEditMode = false;
-            enterEditModeButton.classList.remove("hidden");
-            exitEditModeButton.classList.add("hidden");
-        });
     </script>
 </body>
 </html>
