@@ -1,110 +1,63 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Liveuamap Style with Leaflet</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Public Map</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
         #map {
-            height: 600px;
+            height: 100vh;
             width: 100%;
-            margin-top: 20px;
-        }
-        .legend {
-            background: white;
-            padding: 10px;
-            border-radius: 5px;
-            line-height: 1.5;
-            font-size: 14px;
-            position: absolute;
-            bottom: 30px;
-            left: 30px;
-            z-index: 1000;
         }
     </style>
 </head>
 <body>
-    <h1>Interactive Map with Liveuamap Features</h1>
-    <p>Click the map to add pins. Territories are colored based on their group.</p>
     <div id="map"></div>
 
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script>
-        // Initialize the map
-        const map = L.map('map').setView([37.7749, -122.4194], 6);
+    <script type="module">
+        // Import Firebase modules
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+        import { getFirestore, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+        import "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
+
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyAYdm4vpHn4vJVqCFgiGRMJixB1G6mpY2U",
+            authDomain: "romaps-8915a.firebaseapp.com",
+            projectId: "romaps-8915a",
+            storageBucket: "romaps-8915a.appspot.com",
+            messagingSenderId: "823350465896",
+            appId: "1:823350465896:web:764682786577f74b4d72dd"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        // Initialize map
+        const map = L.map('map').setView([37.7749, -122.4194], 6); // Center on San Francisco
 
         // Add OpenStreetMap tiles
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '© OpenStreetMap contributors'
         }).addTo(map);
 
-        // Add a GeoJSON layer for territories
-        const territories = {
-            "type": "FeatureCollection",
-            "features": [
-                {
-                    "type": "Feature",
-                    "properties": { "group": "Faction A" },
-                    "geometry": {
-                        "type": "Polygon",
-                        "coordinates": [[
-                            [-123.0, 38.0],
-                            [-122.0, 38.0],
-                            [-122.0, 37.0],
-                            [-123.0, 37.0],
-                            [-123.0, 38.0]
-                        ]]
-                    }
-                },
-                {
-                    "type": "Feature",
-                    "properties": { "group": "Faction B" },
-                    "geometry": {
-                        "type": "Polygon",
-                        "coordinates": [[
-                            [-121.0, 38.5],
-                            [-120.0, 38.5],
-                            [-120.0, 37.5],
-                            [-121.0, 37.5],
-                            [-121.0, 38.5]
-                        ]]
-                    }
+        // Load markers in real-time
+        const markersCollection = collection(db, "markers");
+        onSnapshot(markersCollection, (snapshot) => {
+            map.eachLayer((layer) => {
+                if (layer instanceof L.Marker) {
+                    map.removeLayer(layer); // Remove existing markers
                 }
-            ]
-        };
+            });
 
-        // Style territories based on their group
-        const territoryStyles = {
-            "Faction A": { color: "blue", fillColor: "blue", fillOpacity: 0.3 },
-            "Faction B": { color: "red", fillColor: "red", fillOpacity: 0.3 }
-        };
-
-        L.geoJSON(territories, {
-            style: function(feature) {
-                return territoryStyles[feature.properties.group];
-            }
-        }).addTo(map);
-
-        // Click event to add markers
-        map.on('click', function(e) {
-            const { lat, lng } = e.latlng;
-            L.marker([lat, lng])
-                .addTo(map)
-                .bindPopup(`<b>New Marker</b><br>Lat: ${lat.toFixed(4)}<br>Lng: ${lng.toFixed(4)}`)
-                .openPopup();
+            snapshot.forEach((doc) => {
+                const data = doc.data();
+                L.marker([data.lat, data.lng]).addTo(map)
+                    .bindPopup(data.description || "No description available.");
+            });
         });
-
-        // Add a legend
-        const legend = L.control({ position: "bottomleft" });
-        legend.onAdd = function() {
-            const div = L.DomUtil.create("div", "legend");
-            div.innerHTML = `
-                <b>Legend</b><br>
-                <i style="background: blue; width: 12px; height: 12px; display: inline-block;"></i> Faction A<br>
-                <i style="background: red; width: 12px; height: 12px; display: inline-block;"></i> Faction B<br>
-            `;
-            return div;
-        };
-        legend.addTo(map);
     </script>
 </body>
 </html>
