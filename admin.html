@@ -35,9 +35,9 @@
         <label for="password">Password:</label>
         <input type="password" id="password" placeholder="Password" required />
         <button id="signIn">Sign In</button>
-        <button id="signOut" class="hidden">Sign Out</button>
     </div>
     <div id="controls" class="hidden">
+        <button id="signOut">Sign Out</button>
         <h2>Key Management</h2>
         <input type="text" id="keyLabel" placeholder="Label" />
         <input type="color" id="keyColor" />
@@ -49,8 +49,8 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
-        import { getAuth, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
-        import { getFirestore, collection, addDoc, deleteDoc, getDocs } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+        import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
+        import { getFirestore, collection, addDoc, deleteDoc, getDocs, onSnapshot } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
         import "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
 
         const firebaseConfig = {
@@ -66,46 +66,70 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        const signInButton = document.getElementById("signIn");
-        const signOutButton = document.getElementById("signOut");
+        const authDiv = document.getElementById("auth");
         const controlsDiv = document.getElementById("controls");
         const mapDiv = document.getElementById("map");
 
-        signInButton.addEventListener("click", async () => {
+        let map;
+
+        const initMap = () => {
+            if (!map) {
+                map = L.map('map').setView([37.7749, -122.4194], 6);
+
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '© OpenStreetMap contributors'
+                }).addTo(map);
+
+                map.on("click", async (e) => {
+                    const { lat, lng } = e.latlng;
+                    const description = prompt("Enter a description for this marker:");
+                    if (description) {
+                        await addDoc(collection(db, "markers"), { lat, lng, description });
+                    }
+                });
+
+                loadExistingMarkers();
+            }
+        };
+
+        const loadExistingMarkers = () => {
+            const markersCollection = collection(db, "markers");
+            onSnapshot(markersCollection, (snapshot) => {
+                map.eachLayer((layer) => {
+                    if (layer instanceof L.Marker) {
+                        map.removeLayer(layer);
+                    }
+                });
+
+                snapshot.forEach((doc) => {
+                    const data = doc.data();
+                    L.marker([data.lat, data.lng]).addTo(map)
+                        .bindPopup(data.description || "No description available.");
+                });
+            });
+        };
+
+        const addKeyManagement = () => {
+            const keyColorsCollection = collection(db, "keyColors");
+            onSnapshot(keyColorsCollection, (snapshot) => {
+                // Update your key management system if needed
+            });
+        };
+
+        document.getElementById("signIn").addEventListener("click", async () => {
             const email = document.getElementById("email").value;
             const password = document.getElementById("password").value;
 
             try {
                 await signInWithEmailAndPassword(auth, email, password);
-                controlsDiv.classList.remove("hidden");
-                mapDiv.style.display = "block";
-                initMap();
             } catch (error) {
                 alert("Sign-in failed: " + error.message);
             }
         });
 
-        signOutButton.addEventListener("click", async () => {
+        document.getElementById("signOut").addEventListener("click", async () => {
             await signOut(auth);
-            controlsDiv.classList.add("hidden");
-            mapDiv.style.display = "none";
         });
-
-        function initMap() {
-            const map = L.map('map').setView([37.7749, -122.4194], 6);
-
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '© OpenStreetMap contributors'
-            }).addTo(map);
-
-            map.on("click", async (e) => {
-                const { lat, lng } = e.latlng;
-                const description = prompt("Enter a description for this marker:");
-                if (description) {
-                    await addDoc(collection(db, "markers"), { lat, lng, description });
-                }
-            });
-        }
 
         document.getElementById("addKey").addEventListener("click", async () => {
             const label = document.getElementById("keyLabel").value;
@@ -125,6 +149,20 @@
             });
 
             alert("All markers removed!");
+        });
+
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                authDiv.classList.add("hidden");
+                controlsDiv.classList.remove("hidden");
+                mapDiv.style.display = "block";
+                initMap();
+                addKeyManagement();
+            } else {
+                authDiv.classList.remove("hidden");
+                controlsDiv.classList.add("hidden");
+                mapDiv.style.display = "none";
+            }
         });
     </script>
 </body>
