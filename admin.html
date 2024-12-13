@@ -25,6 +25,9 @@
             margin-top: 20px;
             display: none;
         }
+        #keyEditor {
+            margin-top: 20px;
+        }
         #keyList {
             margin-top: 10px;
         }
@@ -49,17 +52,19 @@
     </div>
     <div id="controls" class="hidden">
         <button id="signOut">Sign Out</button>
-        <h2>Key Management</h2>
-        <div>
-            <input type="text" id="keyLabel" placeholder="Label" />
-            <input type="color" id="keyColor" />
-            <button id="addKey">Add Key</button>
+        <div id="map"></div>
+        <div id="keyEditor">
+            <h2>Key Management</h2>
+            <div>
+                <input type="text" id="keyLabel" placeholder="Label" />
+                <input type="color" id="keyColor" />
+                <button id="addKey">Add Key</button>
+            </div>
+            <div id="keyList"></div>
         </div>
-        <div id="keyList"></div>
         <h2>Remove Markers</h2>
         <button id="removeMarkers">Remove All Markers</button>
     </div>
-    <div id="map"></div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
@@ -83,6 +88,7 @@
         const authDiv = document.getElementById("auth");
         const controlsDiv = document.getElementById("controls");
         const mapDiv = document.getElementById("map");
+        const keyEditorDiv = document.getElementById("keyEditor");
 
         const keyListDiv = document.getElementById("keyList");
         let map;
