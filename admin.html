@@ -39,7 +39,7 @@
         // Import Firebase modules
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
         import { getAuth, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
-        import { getFirestore, collection, addDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, updateDoc, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
         import "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
 
         // Firebase configuration
@@ -97,7 +97,7 @@
             // Firestore collection reference
             const markersCollection = collection(db, "markers");
 
-            // Add markers from Firestore
+            // Load existing markers
             onSnapshot(markersCollection, (snapshot) => {
                 snapshot.forEach((doc) => {
                     const data = doc.data();
