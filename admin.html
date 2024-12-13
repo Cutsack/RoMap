@@ -1,97 +1,69 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Admin Page</title>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <style>
-        #map {
-            height: 500px;
-            width: 100%;
-            margin-top: 20px;
-        }
-        #auth {
-            margin: 20px;
-        }
-        .hidden {
-            display: none;
-        }
-    </style>
-</head>
-<body>
-    <h1>Admin Page</h1>
-    <div id="auth">
-        <input type="email" id="email" placeholder="Email" />
-        <input type="password" id="password" placeholder="Password" />
-        <button id="signIn">Sign In</button>
-        <button id="signOut" class="hidden">Sign Out</button>
-    </div>
-    <div id="map" class="hidden"></div>
+<script type="module">
+    // Import Firebase modules
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+    import { getAuth, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
+    import { getFirestore, collection, addDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
 
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js"></script>
-    <script>
-        // Initialize Firebase
-        const firebaseConfig = {
+    // Firebase configuration
+    const firebaseConfig = {
             apiKey: "AIzaSyAYdm4vpHn4vJVqCFgiGRMJixB1G6mpY2U",
             authDomain: "romaps-8915a.firebaseapp.com",
             projectId: "romaps-8915a",
             storageBucket: "romaps-8915a.appspot.com",
             messagingSenderId: "823350465896",
             appId: "1:823350465896:web:764682786577f74b4d72dd"
-        };
-        const app = firebase.initializeApp(firebaseConfig);
-        const auth = firebase.getAuth();
-        const db = firebase.getFirestore();
+    };
 
-        // Sign In and Out Handlers
-        document.getElementById("signIn").addEventListener("click", async () => {
-            const email = document.getElementById("email").value;
-            const password = document.getElementById("password").value;
-            try {
-                await firebase.signInWithEmailAndPassword(auth, email, password);
-                document.getElementById("auth").classList.add("hidden");
-                document.getElementById("map").classList.remove("hidden");
-                initMap();
-            } catch (error) {
-                alert("Error: " + error.message);
-            }
-        });
+    // Initialize Firebase
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
 
-        document.getElementById("signOut").addEventListener("click", async () => {
-            await firebase.signOut(auth);
-            document.getElementById("auth").classList.remove("hidden");
-            document.getElementById("map").classList.add("hidden");
-        });
-
-        // Initialize Map
-        function initMap() {
-            const map = L.map('map').setView([37.7749, -122.4194], 6);
-
-            // Add OpenStreetMap tiles
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '© OpenStreetMap contributors'
-            }).addTo(map);
-
-            // Add markers from Firestore
-            const markersCollection = firebase.collection(db, "markers");
-            firebase.onSnapshot(markersCollection, (snapshot) => {
-                snapshot.forEach((doc) => {
-                    const data = doc.data();
-                    L.marker([data.lat, data.lng]).addTo(map)
-                        .bindPopup(data.description || "No description");
-                });
-            });
-
-            // Click event to add new markers
-            map.on('click', async (e) => {
-                const { lat, lng } = e.latlng;
-                const description = prompt("Enter a description for the marker:");
-                await firebase.addDoc(markersCollection, { lat, lng, description });
-                alert("Marker added!");
-            });
+    // Sign In and Out Handlers
+    document.getElementById("signIn").addEventListener("click", async () => {
+        const email = document.getElementById("email").value;
+        const password = document.getElementById("password").value;
+        try {
+            await signInWithEmailAndPassword(auth, email, password);
+            document.getElementById("auth").classList.add("hidden");
+            document.getElementById("map").classList.remove("hidden");
+            initMap();
+        } catch (error) {
+            alert("Error: " + error.message);
         }
-    </script>
-</body>
-</html>
+    });
+
+    document.getElementById("signOut").addEventListener("click", async () => {
+        await signOut(auth);
+        document.getElementById("auth").classList.remove("hidden");
+        document.getElementById("map").classList.add("hidden");
+    });
+
+    // Initialize Map
+    function initMap() {
+        const map = L.map('map').setView([37.7749, -122.4194], 6);
+
+        // Add OpenStreetMap tiles
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+
+        // Add markers from Firestore
+        const markersCollection = collection(db, "markers");
+        onSnapshot(markersCollection, (snapshot) => {
+            snapshot.forEach((doc) => {
+                const data = doc.data();
+                L.marker([data.lat, data.lng]).addTo(map)
+                    .bindPopup(data.description || "No description");
+            });
+        });
+
+        // Click event to add new markers
+        map.on('click', async (e) => {
+            const { lat, lng } = e.latlng;
+            const description = prompt("Enter a description for the marker:");
+            await addDoc(markersCollection, { lat, lng, description });
+            alert("Marker added!");
+        });
+    }
+</script>
