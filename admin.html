@@ -8,31 +8,25 @@
     <style>
         body {
             font-family: Arial, sans-serif;
-            margin: 0;
-            padding: 0;
         }
-
         #auth {
-            padding: 20px;
-            background-color: #f4f4f4;
-            border-bottom: 1px solid #ccc;
+            margin: 20px;
         }
-
         #map {
             height: 500px;
             width: 100%;
+            margin-top: 20px;
         }
-
         #controls {
-            margin: 20px;
+            margin-top: 20px;
         }
-
-        .hidden {
-            display: none;
+        #territoryColor {
+            margin-right: 10px;
         }
     </style>
 </head>
 <body>
+    <h1>Admin Page</h1>
     <div id="auth">
         <label for="email">Email:</label>
         <input type="email" id="email" placeholder="Email" required />
@@ -41,10 +35,8 @@
         <button id="signIn">Sign In</button>
         <button id="signOut" class="hidden">Sign Out</button>
     </div>
-
-    <div id="map" class="hidden"></div>
-
-    <div id="controls" class="hidden">
+    <div id="map" style="display:none;"></div>
+    <div id="controls" style="display:none;">
         <button id="toggleEditMode">Toggle Edit Mode</button>
         <select id="territoryColor">
             <option value="">Select Key Color</option>
@@ -74,155 +66,101 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        const authDiv = document.getElementById("auth");
-        const mapDiv = document.getElementById("map");
-        const controlsDiv = document.getElementById("controls");
+        const emailInput = document.getElementById("email");
+        const passwordInput = document.getElementById("password");
         const signInButton = document.getElementById("signIn");
         const signOutButton = document.getElementById("signOut");
-        const toggleEditModeButton = document.getElementById("toggleEditMode");
-        const saveTerritoryButton = document.getElementById("saveTerritory");
-        const territoryColorSelect = document.getElementById("territoryColor");
+        const mapDiv = document.getElementById("map");
+        const controlsDiv = document.getElementById("controls");
 
-        let map;
-        let editMode = false;
-        let currentLayer;
-        let territoryCoordinates = [];
+        let map, editMode = false, currentLayer, territoryCoordinates = [];
         const markers = {};
         const territoryCollection = collection(db, "territories");
-        const markerCollection = collection(db, "markers");
 
-        // Sign In
         signInButton.addEventListener("click", async () => {
-            const email = document.getElementById("email").value;
-            const password = document.getElementById("password").value;
+            const email = emailInput.value;
+            const password = passwordInput.value;
 
             try {
                 await signInWithEmailAndPassword(auth, email, password);
-                authDiv.classList.add("hidden");
-                mapDiv.classList.remove("hidden");
-                controlsDiv.classList.remove("hidden");
+                document.getElementById("auth").style.display = "none";
+                mapDiv.style.display = "block";
+                controlsDiv.style.display = "block";
                 initializeMap();
             } catch (error) {
                 alert("Sign-in failed: " + error.message);
             }
         });
 
-        // Sign Out
         signOutButton.addEventListener("click", async () => {
             await signOut(auth);
-            authDiv.classList.remove("hidden");
-            mapDiv.classList.add("hidden");
-            controlsDiv.classList.add("hidden");
+            location.reload();
         });
 
-        // Initialize Map
-        const initializeMap = () => {
+        function initializeMap() {
             map = L.map('map').setView([37.7749, -122.4194], 6);
+
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                 attribution: '© OpenStreetMap contributors'
             }).addTo(map);
 
-            loadMarkers();
-            loadTerritories();
-        };
+            loadExistingTerritories();
 
-        // Load Markers
-        const loadMarkers = () => {
-            onSnapshot(markerCollection, (snapshot) => {
-                snapshot.docChanges().forEach((change) => {
-                    const data = change.doc.data();
-                    const markerId = change.doc.id;
+            document.getElementById("toggleEditMode").addEventListener("click", () => {
+                editMode = !editMode;
+                alert(editMode ? "Edit Mode Enabled" : "Edit Mode Disabled");
 
-                    if (change.type === "added") {
-                        if (!markers[markerId]) {
-                            markers[markerId] = L.marker([data.lat, data.lng])
-                                .addTo(map)
-                                .bindPopup(`
-                                    <b>${data.description}</b><br>
-                                    <button onclick="removeMarker('${markerId}')">Remove Marker</button>
-                                `);
-                        }
-                    } else if (change.type === "removed") {
-                        if (markers[markerId]) {
-                            map.removeLayer(markers[markerId]);
-                            delete markers[markerId];
-                        }
-                    }
-                });
+                if (!editMode && currentLayer) {
+                    map.removeLayer(currentLayer);
+                    currentLayer = null;
+                }
             });
-        };
 
-        // Remove Marker
-        window.removeMarker = async (markerId) => {
-            try {
-                await deleteDoc(doc(db, "markers", markerId));
-                alert("Marker removed!");
-            } catch (error) {
-                console.error("Error removing marker: ", error);
-            }
-        };
+            map.on("click", (e) => {
+                if (editMode) {
+                    const { lat, lng } = e.latlng;
+                    territoryCoordinates.push([lat, lng]);
 
-        // Load Territories
-        const loadTerritories = () => {
+                    if (!currentLayer) {
+                        currentLayer = L.polygon(territoryCoordinates, { color: "blue" }).addTo(map);
+                    } else {
+                        currentLayer.setLatLngs(territoryCoordinates);
+                    }
+                }
+            });
+
+            document.getElementById("saveTerritory").addEventListener("click", async () => {
+                const selectedColor = document.getElementById("territoryColor").value;
+                if (!selectedColor || territoryCoordinates.length < 3) {
+                    alert("Select a key color and ensure at least 3 points are added!");
+                    return;
+                }
+
+                try {
+                    await addDoc(territoryCollection, {
+                        coordinates: territoryCoordinates,
+                        color: selectedColor,
+                    });
+                    alert("Territory saved!");
+                    territoryCoordinates = [];
+                    if (currentLayer) {
+                        map.removeLayer(currentLayer);
+                        currentLayer = null;
+                    }
+                } catch (error) {
+                    alert("Failed to save territory: " + error.message);
+                }
+            });
+        }
+
+        function loadExistingTerritories() {
             onSnapshot(territoryCollection, (snapshot) => {
                 snapshot.forEach((doc) => {
                     const data = doc.data();
                     L.polygon(data.coordinates, { color: data.color }).addTo(map);
                 });
             });
-        };
-
-        // Toggle Edit Mode
-        toggleEditModeButton.addEventListener("click", () => {
-            editMode = !editMode;
-            alert(editMode ? "Edit Mode Enabled" : "Edit Mode Disabled");
-
-            if (!editMode && currentLayer) {
-                map.removeLayer(currentLayer);
-                currentLayer = null;
-            }
-        });
-
-        // Map Click to Add Points
-        map.on("click", (e) => {
-            if (editMode) {
-                const { lat, lng } = e.latlng;
-                territoryCoordinates.push([lat, lng]);
-
-                if (!currentLayer) {
-                    currentLayer = L.polygon(territoryCoordinates, { color: "blue" }).addTo(map);
-                } else {
-                    currentLayer.setLatLngs(territoryCoordinates);
-                }
-
-                saveTerritoryButton.disabled = territoryCoordinates.length < 3;
-            }
-        });
-
-        // Save Territory
-        saveTerritoryButton.addEventListener("click", async () => {
-            const selectedColor = territoryColorSelect.value;
-            if (!selectedColor || territoryCoordinates.length < 3) {
-                alert("Select a key color and ensure at least 3 points are added!");
-                return;
-            }
-
-            try {
-                await addDoc(territoryCollection, {
-                    coordinates: territoryCoordinates,
-                    color: selectedColor,
-                });
-                alert("Territory saved!");
-                territoryCoordinates = [];
-                if (currentLayer) {
-                    map.removeLayer(currentLayer);
-                    currentLayer = null;
-                }
-                saveTerritoryButton.disabled = true;
-            } catch (error) {
-                console.error("Error saving territory: ", error);
-            }
-        });
+        }
     </script>
 </body>
 </html>
