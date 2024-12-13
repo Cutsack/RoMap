@@ -1,69 +1,125 @@
-<script type="module">
-    // Import Firebase modules
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
-    import { getAuth, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
-    import { getFirestore, collection, addDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Map Page</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+        }
+        #auth {
+            margin: 20px;
+        }
+        #map {
+            height: 500px;
+            width: 100%;
+            margin-top: 20px;
+            display: none;
+        }
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <h1>Admin Page</h1>
+    <div id="auth">
+        <label for="email">Email:</label>
+        <input type="email" id="email" placeholder="Email" required />
+        <label for="password">Password:</label>
+        <input type="password" id="password" placeholder="Password" required />
+        <button id="signIn">Sign In</button>
+        <button id="signOut" class="hidden">Sign Out</button>
+    </div>
+    <div id="map"></div>
 
-    // Firebase configuration
-    const firebaseConfig = {
+    <script type="module">
+        // Import Firebase modules
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+        import { getAuth, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
+        import { getFirestore, collection, addDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+        import "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
+
+        // Firebase configuration
+        const firebaseConfig = {
             apiKey: "AIzaSyAYdm4vpHn4vJVqCFgiGRMJixB1G6mpY2U",
             authDomain: "romaps-8915a.firebaseapp.com",
             projectId: "romaps-8915a",
             storageBucket: "romaps-8915a.appspot.com",
             messagingSenderId: "823350465896",
             appId: "1:823350465896:web:764682786577f74b4d72dd"
-    };
+        };
 
-    // Initialize Firebase
-    const app = initializeApp(firebaseConfig);
-    const auth = getAuth(app);
-    const db = getFirestore(app);
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
 
-    // Sign In and Out Handlers
-    document.getElementById("signIn").addEventListener("click", async () => {
-        const email = document.getElementById("email").value;
-        const password = document.getElementById("password").value;
-        try {
-            await signInWithEmailAndPassword(auth, email, password);
-            document.getElementById("auth").classList.add("hidden");
-            document.getElementById("map").classList.remove("hidden");
-            initMap();
-        } catch (error) {
-            alert("Error: " + error.message);
-        }
-    });
+        // Authentication handlers
+        const emailInput = document.getElementById("email");
+        const passwordInput = document.getElementById("password");
+        const signInButton = document.getElementById("signIn");
+        const signOutButton = document.getElementById("signOut");
+        const authDiv = document.getElementById("auth");
+        const mapDiv = document.getElementById("map");
 
-    document.getElementById("signOut").addEventListener("click", async () => {
-        await signOut(auth);
-        document.getElementById("auth").classList.remove("hidden");
-        document.getElementById("map").classList.add("hidden");
-    });
+        signInButton.addEventListener("click", async () => {
+            const email = emailInput.value;
+            const password = passwordInput.value;
 
-    // Initialize Map
-    function initMap() {
-        const map = L.map('map').setView([37.7749, -122.4194], 6);
+            try {
+                await signInWithEmailAndPassword(auth, email, password);
+                authDiv.classList.add("hidden");
+                mapDiv.style.display = "block";
+                initMap();
+            } catch (error) {
+                alert("Sign-in failed: " + error.message);
+            }
+        });
 
-        // Add OpenStreetMap tiles
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© OpenStreetMap contributors'
-        }).addTo(map);
+        signOutButton.addEventListener("click", async () => {
+            await signOut(auth);
+            authDiv.classList.remove("hidden");
+            mapDiv.style.display = "none";
+        });
 
-        // Add markers from Firestore
-        const markersCollection = collection(db, "markers");
-        onSnapshot(markersCollection, (snapshot) => {
-            snapshot.forEach((doc) => {
-                const data = doc.data();
-                L.marker([data.lat, data.lng]).addTo(map)
-                    .bindPopup(data.description || "No description");
+        // Initialize map
+        function initMap() {
+            const map = L.map('map').setView([37.7749, -122.4194], 6); // Center on San Francisco
+
+            // Add OpenStreetMap tiles
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(map);
+
+            // Firestore collection reference
+            const markersCollection = collection(db, "markers");
+
+            // Add markers from Firestore
+            onSnapshot(markersCollection, (snapshot) => {
+                snapshot.forEach((doc) => {
+                    const data = doc.data();
+                    L.marker([data.lat, data.lng]).addTo(map)
+                        .bindPopup(data.description || "No description available.");
+                });
             });
-        });
 
-        // Click event to add new markers
-        map.on('click', async (e) => {
-            const { lat, lng } = e.latlng;
-            const description = prompt("Enter a description for the marker:");
-            await addDoc(markersCollection, { lat, lng, description });
-            alert("Marker added!");
-        });
-    }
-</script>
+            // Add new markers
+            map.on("click", async (e) => {
+                const { lat, lng } = e.latlng;
+                const description = prompt("Enter a description for this marker:");
+                if (description) {
+                    try {
+                        await addDoc(markersCollection, { lat, lng, description });
+                        alert("Marker added!");
+                    } catch (error) {
+                        alert("Failed to add marker: " + error.message);
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+</html>
