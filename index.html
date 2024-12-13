@@ -12,17 +12,39 @@
         }
         #legend {
             position: absolute;
-            bottom: 10px;
-            left: 10px;
+            bottom: 20px;
+            left: 20px;
             background: white;
             padding: 10px;
-            border: 1px solid black;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-size: 14px;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+        }
+        #legend h3 {
+            margin: 0;
+            font-size: 16px;
+            font-weight: bold;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-top: 5px;
+        }
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            margin-right: 10px;
+            border: 1px solid #ccc;
         }
     </style>
 </head>
 <body>
     <div id="map"></div>
-    <div id="legend"></div>
+    <div id="legend">
+        <h3>Legend</h3>
+        <div id="legend-items"></div>
+    </div>
 
     <script type="module">
         // Import Firebase modules
@@ -68,16 +90,27 @@
             });
         });
 
-        // Load key colors in real-time
+        // Update legend with key colors
         const keyColorsCollection = collection(db, "keyColors");
         onSnapshot(keyColorsCollection, (snapshot) => {
-            const legend = document.getElementById("legend");
-            legend.innerHTML = "<h3>Legend</h3>";
+            const legendItems = document.getElementById("legend-items");
+            legendItems.innerHTML = ""; // Clear existing items
+
             snapshot.forEach((doc) => {
                 const { label, color } = doc.data();
                 const legendItem = document.createElement("div");
-                legendItem.innerHTML = `<span style="background:${color};width:20px;height:20px;display:inline-block;margin-right:10px;"></span>${label}`;
-                legend.appendChild(legendItem);
+                legendItem.classList.add("legend-item");
+
+                const colorBox = document.createElement("div");
+                colorBox.classList.add("legend-color");
+                colorBox.style.backgroundColor = color;
+
+                const labelText = document.createElement("span");
+                labelText.textContent = label;
+
+                legendItem.appendChild(colorBox);
+                legendItem.appendChild(labelText);
+                legendItems.appendChild(legendItem);
             });
         });
     </script>
