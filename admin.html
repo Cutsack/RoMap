@@ -18,11 +18,7 @@
             margin-top: 20px;
             display: none;
         }
-        .hidden {
-            display: none;
-        }
         #controls {
-            margin-top: 20px;
             display: none;
         }
         #keyEditor {
@@ -50,7 +46,7 @@
         <input type="password" id="password" placeholder="Password" required />
         <button id="signIn">Sign In</button>
     </div>
-    <div id="controls" class="hidden">
+    <div id="controls">
         <button id="signOut">Sign Out</button>
         <div id="map"></div>
         <div id="keyEditor">
@@ -89,8 +85,8 @@
         const controlsDiv = document.getElementById("controls");
         const mapDiv = document.getElementById("map");
         const keyEditorDiv = document.getElementById("keyEditor");
-
         const keyListDiv = document.getElementById("keyList");
+
         let map;
 
         const initMap = () => {
@@ -146,7 +142,6 @@
                     keyListDiv.appendChild(keyItem);
                 });
 
-                // Add event listeners to delete buttons
                 document.querySelectorAll(".deleteKey").forEach((button) => {
                     button.addEventListener("click", async (e) => {
                         const keyId = e.target.getAttribute("data-id");
@@ -163,7 +158,7 @@
             try {
                 await signInWithEmailAndPassword(auth, email, password);
                 authDiv.classList.add("hidden");
-                controlsDiv.classList.remove("hidden");
+                controlsDiv.style.display = "block";
                 mapDiv.style.display = "block";
                 initMap();
                 loadKeyList();
@@ -175,9 +170,8 @@
         document.getElementById("signOut").addEventListener("click", async () => {
             await signOut(auth);
             authDiv.classList.remove("hidden");
-            controlsDiv.classList.add("hidden");
+            controlsDiv.style.display = "none";
             mapDiv.style.display = "none";
-            location.reload(); // Ensure login is reset
         });
 
         document.getElementById("addKey").addEventListener("click", async () => {
