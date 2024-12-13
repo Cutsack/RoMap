@@ -21,6 +21,26 @@
         .hidden {
             display: none;
         }
+        #keyContainer {
+            display: flex;
+            margin-top: 20px;
+        }
+        .territory-key {
+            margin-right: 20px;
+            padding: 10px;
+            border: 1px solid black;
+        }
+        #territoryForm {
+            display: flex;
+            margin-top: 10px;
+        }
+        #territoryForm input,
+        #territoryForm select {
+            margin-right: 10px;
+        }
+        #editModeButton {
+            margin-top: 20px;
+        }
     </style>
 </head>
 <body>
@@ -33,7 +53,24 @@
         <button id="signIn">Sign In</button>
         <button id="signOut" class="hidden">Sign Out</button>
     </div>
+
     <div id="map"></div>
+
+    <!-- Territory Key Creation Section -->
+    <div id="keyContainer" class="hidden">
+        <div class="territory-key">
+            <h3>Territory Key</h3>
+            <div id="territoryList"></div>
+        </div>
+        <div id="territoryForm">
+            <input type="text" id="territoryName" placeholder="Enter Territory Name" />
+            <input type="color" id="territoryColor" />
+            <button id="createTerritory">Create Territory</button>
+        </div>
+    </div>
+
+    <!-- Edit Mode Section -->
+    <button id="editModeButton" class="hidden">Enter Edit Mode</button>
 
     <script type="module">
         // Import Firebase modules
@@ -44,12 +81,12 @@
 
         // Firebase configuration
         const firebaseConfig = {
-            apiKey: "AIzaSyAYdm4vpHn4vJVqCFgiGRMJixB1G6mpY2U",
-            authDomain: "romaps-8915a.firebaseapp.com",
-            projectId: "romaps-8915a",
-            storageBucket: "romaps-8915a.appspot.com",
-            messagingSenderId: "823350465896",
-            appId: "1:823350465896:web:764682786577f74b4d72dd"
+            apiKey: "YOUR_API_KEY",
+            authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+            projectId: "YOUR_PROJECT_ID",
+            storageBucket: "YOUR_PROJECT_ID.appspot.com",
+            messagingSenderId: "YOUR_SENDER_ID",
+            appId: "YOUR_APP_ID"
         };
 
         // Initialize Firebase
@@ -64,6 +101,9 @@
         const signOutButton = document.getElementById("signOut");
         const authDiv = document.getElementById("auth");
         const mapDiv = document.getElementById("map");
+        const keyContainer = document.getElementById("keyContainer");
+        const editModeButton = document.getElementById("editModeButton");
+        const territoryList = document.getElementById("territoryList");
 
         signInButton.addEventListener("click", async () => {
             const email = emailInput.value;
@@ -73,6 +113,8 @@
                 await signInWithEmailAndPassword(auth, email, password);
                 authDiv.classList.add("hidden");
                 mapDiv.style.display = "block";
+                keyContainer.classList.remove("hidden");
+                editModeButton.classList.remove("hidden");
                 initMap();
             } catch (error) {
                 alert("Sign-in failed: " + error.message);
@@ -83,11 +125,17 @@
             await signOut(auth);
             authDiv.classList.remove("hidden");
             mapDiv.style.display = "none";
+            keyContainer.classList.add("hidden");
+            editModeButton.classList.add("hidden");
         });
 
         // Initialize map
+        let map;
+        let isEditMode = false;
+        let drawnTerritories = [];
+
         function initMap() {
-            const map = L.map('map').setView([37.7749, -122.4194], 6); // Center on San Francisco
+            map = L.map('map').setView([37.7749, -122.4194], 6); // Center on San Francisco
 
             // Add OpenStreetMap tiles
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -95,31 +143,62 @@
             }).addTo(map);
 
             // Firestore collection reference
-            const markersCollection = collection(db, "markers");
+            const territoriesCollection = collection(db, "territories");
 
-            // Load existing markers
-            onSnapshot(markersCollection, (snapshot) => {
+            // Load existing territories
+            onSnapshot(territoriesCollection, (snapshot) => {
                 snapshot.forEach((doc) => {
                     const data = doc.data();
-                    L.marker([data.lat, data.lng]).addTo(map)
-                        .bindPopup(data.description || "No description available.");
+                    const territoryLayer = L.polygon(data.coordinates, { color: data.color }).addTo(map);
+                    territoryLayer.bindPopup(`<b>${data.name}</b>`);
                 });
             });
 
             // Add new markers
             map.on("click", async (e) => {
-                const { lat, lng } = e.latlng;
-                const description = prompt("Enter a description for this marker:");
-                if (description) {
-                    try {
-                        await addDoc(markersCollection, { lat, lng, description });
-                        alert("Marker added!");
-                    } catch (error) {
-                        alert("Failed to add marker: " + error.message);
+                if (isEditMode) {
+                    const { lat, lng } = e.latlng;
+                    drawnTerritories.push([lat, lng]);
+                    if (drawnTerritories.length > 2) {
+                        const territoryName = prompt("Enter a name for this territory:");
+                        const territoryColor = document.getElementById("territoryColor").value;
+                        if (territoryName) {
+                            try {
+                                await addDoc(territoriesCollection, { name: territoryName, coordinates: drawnTerritories, color: territoryColor });
+                                drawnTerritories = []; // Clear the points after saving
+                                alert("Territory created!");
+                            } catch (error) {
+                                alert("Failed to create territory: " + error.message);
+                            }
+                        }
                     }
                 }
             });
         }
+
+        // Territory creation (key)
+        document.getElementById("createTerritory").addEventListener("click", () => {
+            const name = document.getElementById("territoryName").value;
+            const color = document.getElementById("territoryColor").value;
+
+            if (name && color) {
+                const territoryKeyItem = document.createElement("div");
+                territoryKeyItem.style.backgroundColor = color;
+                territoryKeyItem.textContent = name;
+                territoryList.appendChild(territoryKeyItem);
+            } else {
+                alert("Please enter both a name and a color for the territory.");
+            }
+        });
+
+        // Toggle Edit Mode
+        editModeButton.addEventListener("click", () => {
+            isEditMode = !isEditMode;
+            editModeButton.textContent = isEditMode ? "Exit Edit Mode" : "Enter Edit Mode";
+            if (!isEditMode) {
+                drawnTerritories = []; // Reset drawn territories
+            }
+        });
     </script>
 </body>
 </html>
