@@ -21,6 +21,13 @@
         .hidden {
             display: none;
         }
+        form {
+            margin-top: 20px;
+        }
+        ul {
+            list-style-type: none;
+            padding: 0;
+        }
     </style>
 </head>
 <body>
@@ -34,6 +41,14 @@
         <button id="signOut" class="hidden">Sign Out</button>
     </div>
     <div id="map"></div>
+
+    <h2>Manage Key</h2>
+    <form id="keyForm">
+        <input type="text" id="label" placeholder="Label" required />
+        <input type="color" id="color" required />
+        <button type="submit">Add/Update Key</button>
+    </form>
+    <ul id="keyList"></ul>
 
     <script type="module">
         // Import Firebase modules
@@ -120,6 +135,37 @@
                 }
             });
         }
+
+        // Manage Key Colors
+        const keyColorsCollection = collection(db, "keyColors");
+
+        // Add or update key colors
+        const keyForm = document.getElementById("keyForm");
+        keyForm.addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const label = document.getElementById("label").value;
+            const color = document.getElementById("color").value;
+
+            try {
+                const keyDoc = doc(keyColorsCollection, label);
+                await updateDoc(keyDoc, { label, color });
+            } catch {
+                await addDoc(keyColorsCollection, { label, color });
+            }
+            keyForm.reset();
+        });
+
+        // Display key colors in real-time
+        onSnapshot(keyColorsCollection, (snapshot) => {
+            const keyList = document.getElementById("keyList");
+            keyList.innerHTML = "";
+            snapshot.forEach((doc) => {
+                const { label, color } = doc.data();
+                const listItem = document.createElement("li");
+                listItem.textContent = `${label}: ${color}`;
+                keyList.appendChild(listItem);
+            });
+        });
     </script>
 </body>
 </html>
