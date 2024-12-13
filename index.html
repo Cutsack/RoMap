@@ -1,9 +1,35 @@
- <!DOCTYPE html>
+<!DOCTYPE html>
 <html>
+<head>
+    <title>Leaflet Map Integration</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        #map {
+            height: 500px;
+            width: 100%;
+            margin-top: 20px;
+        }
+    </style>
+</head>
 <body>
+    <h1>Leaflet Map Integration</h1>
+    <p>Below is a Leaflet map embedded into this webpage:</p>
+    <div id="map"></div>
 
-<h1>My First Heading</h1>
-<p>My first paragraph.</p>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // Initialize the map
+        const map = L.map('map').setView([37.7749, -122.4194], 13); // Centered at San Francisco
 
+        // Add OpenStreetMap tiles
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+
+        // Add a marker
+        L.marker([37.7749, -122.4194]).addTo(map)
+            .bindPopup('San Francisco')
+            .openPopup();
+    </script>
 </body>
-</html> 
+</html>
