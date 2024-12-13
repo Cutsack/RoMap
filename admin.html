@@ -27,17 +27,14 @@
         }
         #keyList {
             margin-top: 10px;
-            list-style: none;
-            padding: 0;
         }
-        #keyList li {
-            margin: 5px 0;
-            padding: 5px;
-            border: 1px solid #ccc;
-            border-radius: 5px;
+        .key-item {
             display: flex;
-            justify-content: space-between;
             align-items: center;
+            margin-bottom: 5px;
+        }
+        .key-item span {
+            margin-right: 10px;
         }
     </style>
 </head>
@@ -52,11 +49,13 @@
     </div>
     <div id="controls" class="hidden">
         <button id="signOut">Sign Out</button>
-        <h2>Key Editor</h2>
-        <input type="text" id="keyLabel" placeholder="Label" />
-        <input type="color" id="keyColor" />
-        <button id="addKey">Add Key</button>
-        <ul id="keyList"></ul>
+        <h2>Key Management</h2>
+        <div>
+            <input type="text" id="keyLabel" placeholder="Label" />
+            <input type="color" id="keyColor" />
+            <button id="addKey">Add Key</button>
+        </div>
+        <div id="keyList"></div>
         <h2>Remove Markers</h2>
         <button id="removeMarkers">Remove All Markers</button>
     </div>
@@ -84,8 +83,8 @@
         const authDiv = document.getElementById("auth");
         const controlsDiv = document.getElementById("controls");
         const mapDiv = document.getElementById("map");
-        const keyList = document.getElementById("keyList");
 
+        const keyListDiv = document.getElementById("keyList");
         let map;
 
         const initMap = () => {
@@ -125,18 +124,27 @@
             });
         };
 
-        const loadKeys = () => {
+        const loadKeyList = () => {
             const keyColorsCollection = collection(db, "keyColors");
             onSnapshot(keyColorsCollection, (snapshot) => {
-                keyList.innerHTML = ""; // Clear existing keys
+                keyListDiv.innerHTML = ""; // Clear existing list
                 snapshot.forEach((doc) => {
-                    const key = doc.data();
-                    const li = document.createElement("li");
-                    li.innerHTML = `<span>${key.label}</span> <span style="background-color: ${key.color}; width: 20px; height: 20px; display: inline-block;"></span> <button data-id="${doc.id}">Remove</button>`;
-                    keyList.appendChild(li);
+                    const { label, color } = doc.data();
+                    const keyItem = document.createElement("div");
+                    keyItem.className = "key-item";
+                    keyItem.innerHTML = `
+                        <span style="background-color:${color}; width:20px; height:20px; display:inline-block;"></span>
+                        ${label}
+                        <button data-id="${doc.id}" class="deleteKey">Remove</button>
+                    `;
+                    keyListDiv.appendChild(keyItem);
+                });
 
-                    li.querySelector("button").addEventListener("click", async () => {
-                        await deleteDoc(doc(db, "keyColors", doc.id));
+                // Add event listeners to delete buttons
+                document.querySelectorAll(".deleteKey").forEach((button) => {
+                    button.addEventListener("click", async (e) => {
+                        const keyId = e.target.getAttribute("data-id");
+                        await deleteDoc(doc(db, "keyColors", keyId));
                     });
                 });
             });
@@ -152,7 +160,7 @@
                 controlsDiv.classList.remove("hidden");
                 mapDiv.style.display = "block";
                 initMap();
-                loadKeys();
+                loadKeyList();
             } catch (error) {
                 alert("Sign-in failed: " + error.message);
             }
@@ -163,6 +171,7 @@
             authDiv.classList.remove("hidden");
             controlsDiv.classList.add("hidden");
             mapDiv.style.display = "none";
+            location.reload(); // Ensure login is reset
         });
 
         document.getElementById("addKey").addEventListener("click", async () => {
@@ -172,7 +181,6 @@
             if (label && color) {
                 await addDoc(collection(db, "keyColors"), { label, color });
                 document.getElementById("keyLabel").value = "";
-                document.getElementById("keyColor").value = "#000000";
             }
         });
 
