@@ -10,10 +10,19 @@
             height: 100vh;
             width: 100%;
         }
+        #legend {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            background: white;
+            padding: 10px;
+            border: 1px solid black;
+        }
     </style>
 </head>
 <body>
     <div id="map"></div>
+    <div id="legend"></div>
 
     <script type="module">
         // Import Firebase modules
@@ -56,6 +65,19 @@
                 const data = doc.data();
                 L.marker([data.lat, data.lng]).addTo(map)
                     .bindPopup(data.description || "No description available.");
+            });
+        });
+
+        // Load key colors in real-time
+        const keyColorsCollection = collection(db, "keyColors");
+        onSnapshot(keyColorsCollection, (snapshot) => {
+            const legend = document.getElementById("legend");
+            legend.innerHTML = "<h3>Legend</h3>";
+            snapshot.forEach((doc) => {
+                const { label, color } = doc.data();
+                const legendItem = document.createElement("div");
+                legendItem.innerHTML = `<span style="background:${color};width:20px;height:20px;display:inline-block;margin-right:10px;"></span>${label}`;
+                legend.appendChild(legendItem);
             });
         });
     </script>
