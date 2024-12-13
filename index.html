@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Leaflet Map Integration</title>
+    <title>Leaflet Map with Clickable Markers</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
         #map {
@@ -12,8 +12,8 @@
     </style>
 </head>
 <body>
-    <h1>Leaflet Map Integration</h1>
-    <p>Below is a Leaflet map embedded into this webpage:</p>
+    <h1>Leaflet Map with Clickable Markers</h1>
+    <p>Click anywhere on the map to add a marker:</p>
     <div id="map"></div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -26,10 +26,18 @@
             attribution: '© OpenStreetMap contributors'
         }).addTo(map);
 
-        // Add a marker
-        L.marker([37.7749, -122.4194]).addTo(map)
-            .bindPopup('San Francisco')
-            .openPopup();
+        // Handle map click event to add markers
+        map.on('click', function(e) {
+            // Get the latitude and longitude from the click event
+            const lat = e.latlng.lat;
+            const lng = e.latlng.lng;
+
+            // Add a marker at the clicked location
+            L.marker([lat, lng])
+                .addTo(map)
+                .bindPopup(`Marker added at<br>Lat: ${lat.toFixed(4)}, Lng: ${lng.toFixed(4)}`)
+                .openPopup();
+        });
     </script>
 </body>
 </html>
