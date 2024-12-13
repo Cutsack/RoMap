@@ -119,26 +119,33 @@
         };
 
         const loadExistingMarkers = () => {
-            const markersCollection = collection(db, "markers");
-            onSnapshot(markersCollection, (snapshot) => {
-                snapshot.docChanges().forEach((change) => {
-                    const data = change.doc.data();
-                    const markerId = change.doc.id;
+    const markersCollection = collection(db, "markers");
+    onSnapshot(markersCollection, (snapshot) => {
+        snapshot.docChanges().forEach((change) => {
+            const data = change.doc.data();
+            const markerId = change.doc.id;
 
-                    if (change.type === "added") {
-                        markers[markerId] = L.marker([data.lat, data.lng])
-                            .addTo(map)
-                            .bindPopup(`
-                                <b>${data.description}</b><br>
-                                <button onclick="removeMarker('${markerId}')">Remove Marker</button>
-                            `);
-                    } else if (change.type === "removed") {
-                        map.removeLayer(markers[markerId]);
-                        delete markers[markerId];
-                    }
-                });
-            });
-        };
+            if (change.type === "added") {
+                // Add marker to the map
+                if (!markers[markerId]) {
+                    markers[markerId] = L.marker([data.lat, data.lng])
+                        .addTo(map)
+                        .bindPopup(`
+                            <b>${data.description}</b><br>
+                            <button onclick="removeMarker('${markerId}')">Remove Marker</button>
+                        `);
+                }
+            } else if (change.type === "removed") {
+                // Remove marker from the map
+                if (markers[markerId]) {
+                    map.removeLayer(markers[markerId]);
+                    delete markers[markerId];
+                }
+            }
+        });
+    });
+};
+
 
         window.removeMarker = async (markerId) => {
             try {
