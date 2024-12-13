@@ -10,27 +10,13 @@
             height: 100vh;
             width: 100%;
         }
-        #territoryKey {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            background: white;
-            padding: 10px;
-            border: 1px solid black;
-            z-index: 1000;
-            max-height: 200px;
-            overflow-y: scroll;
-        }
     </style>
 </head>
 <body>
     <div id="map"></div>
-    <div id="territoryKey">
-        <h3>Territory Key</h3>
-        <div id="territoryKeyList"></div>
-    </div>
 
     <script type="module">
+        // Import Firebase modules
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
         import { getFirestore, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
         import "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
@@ -57,11 +43,8 @@
             attribution: '© OpenStreetMap contributors'
         }).addTo(map);
 
-        // Firestore collections
-        const markersCollection = collection(db, "markers");
-        const territoriesCollection = collection(db, "territories");
-
         // Load markers in real-time
+        const markersCollection = collection(db, "markers");
         onSnapshot(markersCollection, (snapshot) => {
             map.eachLayer((layer) => {
                 if (layer instanceof L.Marker) {
@@ -73,23 +56,6 @@
                 const data = doc.data();
                 L.marker([data.lat, data.lng]).addTo(map)
                     .bindPopup(data.description || "No description available.");
-            });
-        });
-
-        // Load territories and create polygons on map
-        onSnapshot(territoriesCollection, (snapshot) => {
-            snapshot.forEach((doc) => {
-                const data = doc.data();
-                const polygon = L.polygon(data.coordinates.map(coord => [coord.latitude, coord.longitude]), {
-                    color: data.color
-                }).addTo(map);
-                polygon.bindPopup(data.name);
-
-                // Display territory in the key
-                const keyItem = document.createElement("div");
-                keyItem.style.backgroundColor = data.color;
-                keyItem.textContent = data.name;
-                document.getElementById("territoryKeyList").appendChild(keyItem);
             });
         });
     </script>
