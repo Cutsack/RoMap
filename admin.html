@@ -25,6 +25,20 @@
             margin-top: 20px;
             display: none;
         }
+        #keyList {
+            margin-top: 10px;
+            list-style: none;
+            padding: 0;
+        }
+        #keyList li {
+            margin: 5px 0;
+            padding: 5px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
     </style>
 </head>
 <body>
@@ -38,10 +52,11 @@
     </div>
     <div id="controls" class="hidden">
         <button id="signOut">Sign Out</button>
-        <h2>Key Management</h2>
+        <h2>Key Editor</h2>
         <input type="text" id="keyLabel" placeholder="Label" />
         <input type="color" id="keyColor" />
         <button id="addKey">Add Key</button>
+        <ul id="keyList"></ul>
         <h2>Remove Markers</h2>
         <button id="removeMarkers">Remove All Markers</button>
     </div>
@@ -49,8 +64,8 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
-        import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
-        import { getFirestore, collection, addDoc, deleteDoc, getDocs, onSnapshot } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+        import { getAuth, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
+        import { getFirestore, collection, addDoc, deleteDoc, getDocs, onSnapshot, doc } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
         import "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
 
         const firebaseConfig = {
@@ -69,6 +84,7 @@
         const authDiv = document.getElementById("auth");
         const controlsDiv = document.getElementById("controls");
         const mapDiv = document.getElementById("map");
+        const keyList = document.getElementById("keyList");
 
         let map;
 
@@ -109,10 +125,20 @@
             });
         };
 
-        const addKeyManagement = () => {
+        const loadKeys = () => {
             const keyColorsCollection = collection(db, "keyColors");
             onSnapshot(keyColorsCollection, (snapshot) => {
-                // Update your key management system if needed
+                keyList.innerHTML = ""; // Clear existing keys
+                snapshot.forEach((doc) => {
+                    const key = doc.data();
+                    const li = document.createElement("li");
+                    li.innerHTML = `<span>${key.label}</span> <span style="background-color: ${key.color}; width: 20px; height: 20px; display: inline-block;"></span> <button data-id="${doc.id}">Remove</button>`;
+                    keyList.appendChild(li);
+
+                    li.querySelector("button").addEventListener("click", async () => {
+                        await deleteDoc(doc(db, "keyColors", doc.id));
+                    });
+                });
             });
         };
 
@@ -122,6 +148,11 @@
 
             try {
                 await signInWithEmailAndPassword(auth, email, password);
+                authDiv.classList.add("hidden");
+                controlsDiv.classList.remove("hidden");
+                mapDiv.style.display = "block";
+                initMap();
+                loadKeys();
             } catch (error) {
                 alert("Sign-in failed: " + error.message);
             }
@@ -129,6 +160,9 @@
 
         document.getElementById("signOut").addEventListener("click", async () => {
             await signOut(auth);
+            authDiv.classList.remove("hidden");
+            controlsDiv.classList.add("hidden");
+            mapDiv.style.display = "none";
         });
 
         document.getElementById("addKey").addEventListener("click", async () => {
@@ -137,6 +171,8 @@
 
             if (label && color) {
                 await addDoc(collection(db, "keyColors"), { label, color });
+                document.getElementById("keyLabel").value = "";
+                document.getElementById("keyColor").value = "#000000";
             }
         });
 
@@ -149,20 +185,6 @@
             });
 
             alert("All markers removed!");
-        });
-
-        onAuthStateChanged(auth, (user) => {
-            if (user) {
-                authDiv.classList.add("hidden");
-                controlsDiv.classList.remove("hidden");
-                mapDiv.style.display = "block";
-                initMap();
-                addKeyManagement();
-            } else {
-                authDiv.classList.remove("hidden");
-                controlsDiv.classList.add("hidden");
-                mapDiv.style.display = "none";
-            }
         });
     </script>
 </body>
