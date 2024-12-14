@@ -77,7 +77,12 @@
         onSnapshot(territoryCollection, (snapshot) => {
             snapshot.forEach((doc) => {
                 const data = doc.data();
-                L.polygon(data.coordinates, { color: data.color }).addTo(map);
+				let tCoord = [];
+				for (let i = 0; i < data.territoryCoordinates.length; i++) {
+					let point = data.territoryCoordinates[i];
+					tCoord[i] = [point.latitude, point.longitude];
+				}
+                L.polygon(tCoord, { color: data.territoryColor }).addTo(map);
             });
         });
     </script>

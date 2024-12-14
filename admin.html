@@ -61,7 +61,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
         import { getAuth, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
-        import { getFirestore, collection, addDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, onSnapshot, GeoPoint } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
         import "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
 
         const firebaseConfig = {
@@ -130,12 +130,21 @@
             map.on("click", async (e) => {
                 if (editMode) {
                     const { lat, lng } = e.latlng;
-                    territoryCoordinates.push([lat, lng]);
+					//console.log(new GeoPoint(lat, lng))
+                    territoryCoordinates.push(new GeoPoint(lat, lng));
+					
+					let tCoord = [];
+					for (let i = 0; i < territoryCoordinates.length; i++) {
+						let point = territoryCoordinates[i];
+						tCoord[i] = [point.latitude, point.longitude];
+					}
+					
+					//console.log(tCoord);
 
                     if (!currentLayer) {
-                        currentLayer = L.polygon(territoryCoordinates, { color: "blue" }).addTo(map);
+                        currentLayer = L.polygon(tCoord, { color: "blue" }).addTo(map);
                     } else {
-                        currentLayer.setLatLngs(territoryCoordinates);
+                        currentLayer.setLatLngs(tCoord);
                     }
                 } else {
                     const { lat, lng } = e.latlng;
@@ -163,8 +172,8 @@
 
                 try {
                     await addDoc(territoryCollection, {
-                        coordinates: territoryCoordinates,
-                        color: selectedColor,
+                        territoryCoordinates: territoryCoordinates,
+                        territoryColor: selectedColor,
                     });
                     alert("Territory saved!");
                     territoryCoordinates = [];
@@ -259,7 +268,13 @@
             onSnapshot(territoryCollection, (snapshot) => {
                 snapshot.forEach((doc) => {
                     const data = doc.data();
-                    L.polygon(data.coordinates, { color: data.color }).addTo(map);
+					if (data == null || data.territoryCoordinates == undefined || data.territoryCoordinates.length < 3) { return }
+					let tCoord = [];
+					for (let i = 0; i < data.territoryCoordinates.length; i++) {
+						let point = data.territoryCoordinates[i];
+						tCoord[i] = [point.latitude, point.longitude];
+					}
+                    L.polygon(tCoord, { color: data.territoryColor }).addTo(map);
                 });
             });
         }
