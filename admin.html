@@ -16,27 +16,12 @@
             height: 500px;
             width: 100%;
             margin-top: 20px;
-            display: none;
         }
         #controls {
-            display: none;
-        }
-        #keyEditor {
             margin-top: 20px;
         }
-        #keyList {
-            margin-top: 10px;
-        }
-        .key-item {
-            display: flex;
-            align-items: center;
-            margin-bottom: 5px;
-        }
-        .key-item span {
+        #territoryColor {
             margin-right: 10px;
-        }
-        .hidden {
-            display: none;
         }
     </style>
 </head>
@@ -48,11 +33,19 @@
         <label for="password">Password:</label>
         <input type="password" id="password" placeholder="Password" required />
         <button id="signIn">Sign In</button>
+        <button id="signOut" class="hidden">Sign Out</button>
     </div>
-    <div id="controls">
-        <button id="signOut">Sign Out</button>
-        <div id="map"></div>
-        <div id="keyEditor">
+    <div id="map" style="display:none;"></div>
+    <div id="controls" style="display:none;">
+        <button id="toggleEditMode">Toggle Edit Mode</button>
+        <select id="territoryColor">
+            <option value="">Select Key Color</option>
+            <option value="red">Red</option>
+            <option value="blue">Blue</option>
+            <option value="green">Green</option>
+        </select>
+        <button id="saveTerritory">Save Territory</button>
+		<div id="keyEditor">
             <h2>Key Management</h2>
             <div>
                 <input type="text" id="keyLabel" placeholder="Label" />
@@ -68,7 +61,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
         import { getAuth, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
-        import { getFirestore, collection, addDoc, deleteDoc, getDocs, onSnapshot, doc } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
         import "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
 
         const firebaseConfig = {
@@ -84,23 +77,67 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        const authDiv = document.getElementById("auth");
-        const controlsDiv = document.getElementById("controls");
+        const emailInput = document.getElementById("email");
+        const passwordInput = document.getElementById("password");
+        const signInButton = document.getElementById("signIn");
+        const signOutButton = document.getElementById("signOut");
         const mapDiv = document.getElementById("map");
-        const keyListDiv = document.getElementById("keyList");
+        const controlsDiv = document.getElementById("controls");
 
-        let map;
-        let markers = {};
+        let map, editMode = false, currentLayer, territoryCoordinates = [];
+        const markers = {};
+        const territoryCollection = collection(db, "territories");
 
-        const initMap = () => {
-            if (!map) {
-                map = L.map('map').setView([37.7749, -122.4194], 6);
+        signInButton.addEventListener("click", async () => {
+            const email = emailInput.value;
+            const password = passwordInput.value;
 
-                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                    attribution: '© OpenStreetMap contributors'
-                }).addTo(map);
+            try {
+                await signInWithEmailAndPassword(auth, email, password);
+                document.getElementById("auth").style.display = "none";
+                mapDiv.style.display = "block";
+                controlsDiv.style.display = "block";
+                initializeMap();
+            } catch (error) {
+                alert("Sign-in failed: " + error.message);
+            }
+        });
 
-                map.on("click", async (e) => {
+        signOutButton.addEventListener("click", async () => {
+            await signOut(auth);
+            location.reload();
+        });
+
+        const initializeMap = () => {
+            map = L.map('map').setView([37.7749, -122.4194], 6);
+
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(map);
+
+            loadExistingTerritories();
+
+            document.getElementById("toggleEditMode").addEventListener("click", () => {
+                editMode = !editMode;
+                alert(editMode ? "Edit Mode Enabled" : "Edit Mode Disabled");
+
+                if (!editMode && currentLayer) {
+                    map.removeLayer(currentLayer);
+                    currentLayer = null;
+                }
+            });
+
+            map.on("click", async (e) => {
+                if (editMode) {
+                    const { lat, lng } = e.latlng;
+                    territoryCoordinates.push([lat, lng]);
+
+                    if (!currentLayer) {
+                        currentLayer = L.polygon(territoryCoordinates, { color: "blue" }).addTo(map);
+                    } else {
+                        currentLayer.setLatLngs(territoryCoordinates);
+                    }
+                } else {
                     const { lat, lng } = e.latlng;
                     const description = prompt("Enter a description for this marker:");
                     if (description) {
@@ -112,13 +149,36 @@
                                 <button onclick="removeMarker('${docRef.id}')">Remove Marker</button>
                             `);
                     }
-                });
-
+				}
+				
                 loadExistingMarkers();
-            }
-        };
+            });
 
-        const loadExistingMarkers = () => {
+            document.getElementById("saveTerritory").addEventListener("click", async () => {
+                const selectedColor = document.getElementById("territoryColor").value;
+                if (!selectedColor || territoryCoordinates.length < 3) {
+                    alert("Select a key color and ensure at least 3 points are added!");
+                    return;
+                }
+
+                try {
+                    await addDoc(territoryCollection, {
+                        coordinates: territoryCoordinates,
+                        color: selectedColor,
+                    });
+                    alert("Territory saved!");
+                    territoryCoordinates = [];
+                    if (currentLayer) {
+                        map.removeLayer(currentLayer);
+                        currentLayer = null;
+                    }
+                } catch (error) {
+                    alert("Failed to save territory: " + error.message);
+                }
+            });
+        }
+		
+		const loadExistingMarkers = () => {
             const markersCollection = collection(db, "markers");
             onSnapshot(markersCollection, (snapshot) => {
                 snapshot.docChanges().forEach((change) => {
@@ -139,8 +199,8 @@
                 });
             });
         };
-
-        window.removeMarker = async (markerId) => {
+		
+		window.removeMarker = async (markerId) => {
             try {
                 await deleteDoc(doc(db, "markers", markerId));
                 alert("Marker removed successfully.");
@@ -148,8 +208,8 @@
                 alert("Failed to remove marker: " + error.message);
             }
         };
-
-        const loadKeyList = () => {
+		
+		const loadKeyList = () => {
             const keyColorsCollection = collection(db, "keyColors");
             onSnapshot(keyColorsCollection, (snapshot) => {
                 keyListDiv.innerHTML = ""; // Clear existing list
@@ -174,30 +234,7 @@
             });
         };
 
-        document.getElementById("signIn").addEventListener("click", async () => {
-            const email = document.getElementById("email").value;
-            const password = document.getElementById("password").value;
-
-            try {
-                await signInWithEmailAndPassword(auth, email, password);
-                authDiv.classList.add("hidden");
-                controlsDiv.style.display = "block";
-                mapDiv.style.display = "block";
-                initMap();
-                loadKeyList();
-            } catch (error) {
-                alert("Sign-in failed: " + error.message);
-            }
-        });
-
-        document.getElementById("signOut").addEventListener("click", async () => {
-            await signOut(auth);
-            authDiv.classList.remove("hidden");
-            controlsDiv.style.display = "none";
-            mapDiv.style.display = "none";
-        });
-
-        document.getElementById("addKey").addEventListener("click", async () => {
+		document.getElementById("addKey").addEventListener("click", async () => {
             const label = document.getElementById("keyLabel").value;
             const color = document.getElementById("keyColor").value;
 
@@ -206,8 +243,8 @@
                 document.getElementById("keyLabel").value = "";
             }
         });
-
-        document.getElementById("removeMarkers").addEventListener("click", async () => {
+		
+		/*document.getElementById("removeMarkers").addEventListener("click", async () => {
             const markersCollection = collection(db, "markers");
             const snapshot = await getDocs(markersCollection);
 
@@ -216,7 +253,16 @@
             });
 
             alert("All markers removed!");
-        });
+        });*/
+
+        function loadExistingTerritories() {
+            onSnapshot(territoryCollection, (snapshot) => {
+                snapshot.forEach((doc) => {
+                    const data = doc.data();
+                    L.polygon(data.coordinates, { color: data.color }).addTo(map);
+                });
+            });
+        }
     </script>
 </body>
 </html>
