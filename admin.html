@@ -35,6 +35,9 @@
         .key-item span {
             margin-right: 10px;
         }
+        .hidden {
+            display: none;
+        }
     </style>
 </head>
 <body>
@@ -84,10 +87,10 @@
         const authDiv = document.getElementById("auth");
         const controlsDiv = document.getElementById("controls");
         const mapDiv = document.getElementById("map");
-        const keyEditorDiv = document.getElementById("keyEditor");
         const keyListDiv = document.getElementById("keyList");
 
         let map;
+        let markers = {};
 
         const initMap = () => {
             if (!map) {
@@ -101,7 +104,13 @@
                     const { lat, lng } = e.latlng;
                     const description = prompt("Enter a description for this marker:");
                     if (description) {
-                        await addDoc(collection(db, "markers"), { lat, lng, description });
+                        const docRef = await addDoc(collection(db, "markers"), { lat, lng, description });
+                        markers[docRef.id] = L.marker([lat, lng])
+                            .addTo(map)
+                            .bindPopup(`
+                                <b>${description}</b><br>
+                                <button onclick="removeMarker('${docRef.id}')">Remove Marker</button>
+                            `);
                     }
                 });
 
@@ -112,18 +121,32 @@
         const loadExistingMarkers = () => {
             const markersCollection = collection(db, "markers");
             onSnapshot(markersCollection, (snapshot) => {
-                map.eachLayer((layer) => {
-                    if (layer instanceof L.Marker) {
-                        map.removeLayer(layer);
+                snapshot.docChanges().forEach((change) => {
+                    const data = change.doc.data();
+                    const markerId = change.doc.id;
+
+                    if (change.type === "added") {
+                        markers[markerId] = L.marker([data.lat, data.lng])
+                            .addTo(map)
+                            .bindPopup(`
+                                <b>${data.description}</b><br>
+                                <button onclick="removeMarker('${markerId}')">Remove Marker</button>
+                            `);
+                    } else if (change.type === "removed") {
+                        map.removeLayer(markers[markerId]);
+                        delete markers[markerId];
                     }
                 });
-
-                snapshot.forEach((doc) => {
-                    const data = doc.data();
-                    L.marker([data.lat, data.lng]).addTo(map)
-                        .bindPopup(data.description || "No description available.");
-                });
             });
+        };
+
+        window.removeMarker = async (markerId) => {
+            try {
+                await deleteDoc(doc(db, "markers", markerId));
+                alert("Marker removed successfully.");
+            } catch (error) {
+                alert("Failed to remove marker: " + error.message);
+            }
         };
 
         const loadKeyList = () => {
