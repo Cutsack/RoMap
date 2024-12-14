@@ -81,6 +81,7 @@
         const passwordInput = document.getElementById("password");
         const signInButton = document.getElementById("signIn");
         const signOutButton = document.getElementById("signOut");
+		const keyListDiv = document.getElementById("keyList");
         const mapDiv = document.getElementById("map");
         const controlsDiv = document.getElementById("controls");
 
@@ -98,6 +99,7 @@
                 mapDiv.style.display = "block";
                 controlsDiv.style.display = "block";
                 initializeMap();
+				loadKeyList();
             } catch (error) {
                 alert("Sign-in failed: " + error.message);
             }
@@ -210,15 +212,6 @@
             });
         };
 		
-		window.removeMarker = async (markerId) => {
-            try {
-                await deleteDoc(doc(db, "markers", markerId));
-                alert("Marker removed successfully.");
-            } catch (error) {
-                alert("Failed to remove marker: " + error.message);
-            }
-        };
-		
 		const loadKeyList = () => {
             const keyColorsCollection = collection(db, "keyColors");
             onSnapshot(keyColorsCollection, (snapshot) => {
@@ -242,6 +235,15 @@
                     });
                 });
             });
+        };
+		
+		window.removeMarker = async (markerId) => {
+            try {
+                await deleteDoc(doc(db, "markers", markerId));
+                alert("Marker removed successfully.");
+            } catch (error) {
+                alert("Failed to remove marker: " + error.message);
+            }
         };
 
 		document.getElementById("addKey").addEventListener("click", async () => {
