@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin Map Page</title>
@@ -58,20 +59,10 @@
         <button id="removeMarkers">Remove All Markers</button>
     </div>
 
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
-        import { getAuth, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
-        import { getFirestore, collection, addDoc, onSnapshot, GeoPoint } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
-        import "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
+   	const supabaseUrl = 'https://your-supabase-url.supabase.co';
+	const supabaseKey = API_Key;
+	const supabase = supabase.createClient(supabaseUrl, supabaseKey);
 
-        const firebaseConfig = {
-            apiKey: "AIzaSyAYdm4vpHn4vJVqCFgiGRMJixB1G6mpY2U",
-            authDomain: "romaps-8915a.firebaseapp.com",
-            projectId: "romaps-8915a",
-            storageBucket: "romaps-8915a.appspot.com",
-            messagingSenderId: "823350465896",
-            appId: "1:823350465896:web:764682786577f74b4d72dd"
-        };
 
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
@@ -90,25 +81,27 @@
         const territoryCollection = collection(db, "territories");
 
         signInButton.addEventListener("click", async () => {
-            const email = emailInput.value;
-            const password = passwordInput.value;
+    const email = emailInput.value;
+    const password = passwordInput.value;
 
-            try {
-                await signInWithEmailAndPassword(auth, email, password);
-                document.getElementById("auth").style.display = "none";
-                mapDiv.style.display = "block";
-                controlsDiv.style.display = "block";
-                initializeMap();
-				loadKeyList();
-            } catch (error) {
-                alert("Sign-in failed: " + error.message);
-            }
-        });
+    try {
+        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) throw error;
+        document.getElementById("auth").style.display = "none";
+        mapDiv.style.display = "block";
+        controlsDiv.style.display = "block";
+        initializeMap();
+        loadKeyList();
+    } catch (error) {
+        alert("Sign-in failed: " + error.message);
+    }
+});
 
-        signOutButton.addEventListener("click", async () => {
-            await signOut(auth);
-            location.reload();
-        });
+signOutButton.addEventListener("click", async () => {
+    await supabase.auth.signOut();
+    location.reload();
+});
+
 
         const initializeMap = () => {
             map = L.map('map').setView([37.7749, -122.4194], 6);
